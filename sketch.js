@@ -7,8 +7,13 @@ let video;
 let hands = [];
 let options = {flipped: true};
 
+// 陷阱相關變數
+let trapColumn = -1;
+let trapCountdown = 0;
+let trapFlashMax = 6;
+
 function preload() {
-  handPose = ml5.handPose(options); // 注意：這部分實際應該在 setup 裡初始化
+  handPose = ml5.handPose(options);
 }
 
 function setup() {
@@ -16,7 +21,7 @@ function setup() {
   video = createCapture(VIDEO, {flipped: true});
   video.size(640, 480);
   video.hide();
-  handPose = ml5.handpose(video, modelReady); // 建議使用這個方式初始化
+  handPose = ml5.handpose(video, modelReady);
   handPose.on("predict", gotHands);
 
   cols = floor(width / size);
@@ -45,9 +50,21 @@ function draw() {
     }
   }
 
-  // 地板消失陷阱（每 60 幀一次）
-  if (frameCount % 60 === 0) {
-    disappearTrap();
+  // 每 90 幀設定一次新的陷阱列
+  if (frameCount % 90 === 0 && trapCountdown === 0) {
+    trapColumn = floor(random(cols));
+    trapCountdown = trapFlashMax;
+  }
+
+  // 處理陷阱 countdown
+  if (trapCountdown > 0 && frameCount % 10 === 0) {
+    trapCountdown--;
+    if (trapCountdown === 0 && trapColumn !== -1) {
+      for (let j = 0; j < rows; j++) {
+        grid[trapColumn][j] = 0;
+      }
+      trapColumn = -1;
+    }
   }
 
   drawRect();
@@ -59,7 +76,14 @@ function drawRect() {
     for (let j = 0; j < rows; j++) {
       if (grid[i][j] > 0) {
         noStroke();
-        fill(255, 223, 0, grid[i][j]);
+
+        // 如果是陷阱列且 countdown > 0，就用閃爍效果
+        if (i === trapColumn && trapCountdown > 0 && frameCount % 20 < 10) {
+          fill(255, 0, 0, 200); // 紅色閃爍
+        } else {
+          fill(255, 223, 0, grid[i][j]);
+        }
+
         ellipse(i * size + size / 2, j * size + size / 2, size, size);
         fill(0);
         rectMode(CENTER);
@@ -117,11 +141,4 @@ function updateGrid() {
   }
 
   grid = nextGrid;
-}
-
-function disappearTrap() {
-  let trapX = floor(random(cols));
-  for (let j = 0; j < rows; j++) {
-    grid[trapX][j] = 0;
-  }
 }
